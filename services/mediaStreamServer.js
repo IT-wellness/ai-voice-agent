@@ -23,12 +23,15 @@ export const startMediaWebSocketServer = (server) => {
 
     let audioBuffer = [];
     let silenceTimer = null;
-    let recentAmplitudes = [];
+    const silenceTimeout = 1500; // 1.5s pause triggers transcription
+
+    const resetSilenceTimer = () => {
+      if (silenceTimer) clearTimeout(silenceTimer);
+      silenceTimer = setTimeout(handleSilence, silenceTimeout);
+    };
 
     const handleSilence = async () => {
       if (audioBuffer.length === 0) return;
-
-      console.log('🕳️ handleSilence() triggered - chunking & transcribing...');
 
       const rawChunkPath = path.join(recordingsDir, `chunk-${Date.now()}.raw`);
       fs.writeFileSync(rawChunkPath, Buffer.concat(audioBuffer));
@@ -54,16 +57,7 @@ export const startMediaWebSocketServer = (server) => {
         // fs.unlinkSync(wavPath);
       });
 
-      audioBuffer = [];
-      recentAmplitudes = [];
-    };
-
-    const avgAmplitude = (buf) => {
-      let sum = 0;
-      for (let i = 0; i < buf.length; i++) {
-        sum += Math.abs(buf[i] - 128);
-      }
-      return sum / buf.length;
+      audioBuffer = []; // Reset
     };
 
   ws.on('message', async (message) => {
@@ -73,27 +67,12 @@ export const startMediaWebSocketServer = (server) => {
         if (data.event === 'start') {
           console.log('🎙️ Telnyx started streaming audio.');
         } else if (data.event === 'media') {
+            console.log("MEDIA EVENT: ", data);
           const base64Payload = data.media.payload;
           const audio = Buffer.from(base64Payload, 'base64');
-            const amp = avgAmplitude(audio);
-          recentAmplitudes.push(amp);
-          if (recentAmplitudes.length > 20) recentAmplitudes.shift();
-
-          const lowCount = recentAmplitudes.filter(a => a < 40).length;
-          console.log(`🔊 Avg: ${amp.toFixed(2)}, LowFrames: ${lowCount}/20`);
-
+          
           audioBuffer.push(audio);
-
-          if (lowCount >= 16) { // 80% below silence threshold
-            if (!silenceTimer) {
-              silenceTimer = setTimeout(handleSilence, 1000);
-            }
-          } else {
-            if (silenceTimer) {
-              clearTimeout(silenceTimer);
-              silenceTimer = null;
-            }
-          }
+          resetSilenceTimer();
         } else if (data.event === 'stop') {
           console.log('⛔ Telnyx stopped streaming.');
           await handleSilence();
@@ -113,6 +92,4 @@ export const startMediaWebSocketServer = (server) => {
       console.error('❌ WebSocket error:', err.message);
     });
 });
-
-console.log('🟢 Media WebSocket server ready at /media-stream');
 }
