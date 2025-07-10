@@ -21,8 +21,6 @@ export const startMediaWebSocketServer = (server) => {
     const recordingsDir = path.resolve('recordings');
     if (!fs.existsSync(recordingsDir)) fs.mkdirSync(recordingsDir);
 
-    let rawFilePath = null;
-    let rawFileStream = null;
     let audioBuffer = [];
     let silenceTimer = null;
     const silenceTimeout = 1500; // 1.5s pause triggers transcription
@@ -71,8 +69,11 @@ export const startMediaWebSocketServer = (server) => {
         } else if (data.event === 'media') {
           const base64Payload = data.media.payload;
           const audio = Buffer.from(base64Payload, 'base64');
-          audioBuffer.push(audio);
-          resetSilenceTimer();
+
+          if (audio.length > 10) {
+            audioBuffer.push(audio);
+            resetSilenceTimer();
+          }
         } else if (data.event === 'stop') {
           console.log('⛔ Telnyx stopped streaming.');
           await handleSilence();
