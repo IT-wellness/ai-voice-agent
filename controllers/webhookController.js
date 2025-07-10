@@ -19,20 +19,7 @@ export const handleTelnyxWebhook = async (req, res) => {
   console.log(`✅ Call answered: ${payload.call_control_id}`);
 
   // Start recording
-  await axios.post(
-    `https://api.telnyx.com/v2/calls/${payload.call_control_id}/actions/record_start`,
-    {
-      channels: 'single', // or 'dual' if you want both parties separately
-      format: 'wav',
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${telnyxConfig.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-    }
-  );
-  console.log('🎙️ Recording started');
+ 
 
   // Send welcome message
   await axios.post(
@@ -58,7 +45,35 @@ export const handleTelnyxWebhook = async (req, res) => {
 
       case 'call.speak.ended':
         console.log(`🔇 Speak ended for call ${payload.call_control_id}`);
+         await axios.post(
+    `https://api.telnyx.com/v2/calls/${payload.call_control_id}/actions/record_start`,
+    {
+      channels: 'single', // or 'dual' if you want both parties separately
+      format: 'wav',
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${telnyxConfig.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+    }
+  );
+  console.log('🎙️ Recording started');
 
+   await axios.post(
+    `https://api.telnyx.com/v2/calls/${payload.call_control_id}/actions/streaming_start`,
+    {
+      stream_url: `${telnyxConfig.streamUrl}/media-stream`,
+      stream_track: 'inbound_track', // caller audio only
+      client_state: Buffer.from('start-streaming').toString('base64'),
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${telnyxConfig.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+    }
+  );
         
         break;
 
