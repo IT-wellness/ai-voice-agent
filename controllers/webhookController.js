@@ -95,7 +95,7 @@ const downloadRecording = async (url, callId) => {
     const recordingsDir = path.resolve('recordings');
     await fs.ensureDir(recordingsDir);
 
-    const filePath = path.join(recordingsDir, `${callId}.wav`);
+    const filePath = path.join(recordingsDir, `fdsfsdffsadf.wav`);
     const response = await axios.get(url, { responseType: 'stream' });
 
     const writer = fs.createWriteStream(filePath);
