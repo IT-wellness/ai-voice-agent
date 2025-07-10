@@ -23,12 +23,7 @@ export const startMediaWebSocketServer = (server) => {
 
     let audioBuffer = [];
     let silenceTimer = null;
-    const silenceTimeout = 1500; // 1.5s pause triggers transcription
-
-    const resetSilenceTimer = () => {
-      if (silenceTimer) clearTimeout(silenceTimer);
-      silenceTimer = setTimeout(handleSilence, silenceTimeout);
-    };
+    let recentAmplitudes = [];
 
     const handleSilence = async () => {
       if (audioBuffer.length === 0) return;
@@ -59,17 +54,16 @@ export const startMediaWebSocketServer = (server) => {
         // fs.unlinkSync(wavPath);
       });
 
-      audioBuffer = []; // Reset
+      audioBuffer = [];
+      recentAmplitudes = [];
     };
 
-    const isSilent = (buf, threshold = 2) => {
-      let total = 0;
+    const avgAmplitude = (buf) => {
+      let sum = 0;
       for (let i = 0; i < buf.length; i++) {
-        total += Math.abs(buf[i] - 128); // µ-law silence centers at 128
+        sum += Math.abs(buf[i] - 128);
       }
-      const avg = total / buf.length;
-      console.log(`🔊 Avg Amplitude: ${avg.toFixed(2)}`);
-      return avg < threshold;
+      return sum / buf.length;
     };
 
   ws.on('message', async (message) => {
@@ -81,10 +75,24 @@ export const startMediaWebSocketServer = (server) => {
         } else if (data.event === 'media') {
           const base64Payload = data.media.payload;
           const audio = Buffer.from(base64Payload, 'base64');
+            const amp = avgAmplitude(audio);
+          recentAmplitudes.push(amp);
+          if (recentAmplitudes.length > 20) recentAmplitudes.shift();
 
-          if (!isSilent(audio)) {
-            audioBuffer.push(audio);
-            resetSilenceTimer();
+          const maxAmp = Math.max(...recentAmplitudes);
+          console.log(`🔊 Avg: ${amp.toFixed(2)}, RecentMax: ${maxAmp.toFixed(2)}`);
+
+          audioBuffer.push(audio);
+
+          if (recentAmplitudes.every((a) => a < 35)) {
+            if (!silenceTimer) {
+              silenceTimer = setTimeout(handleSilence, 1000);
+            }
+          } else {
+            if (silenceTimer) {
+              clearTimeout(silenceTimer);
+              silenceTimer = null;
+            }
           }
         } else if (data.event === 'stop') {
           console.log('⛔ Telnyx stopped streaming.');
@@ -105,4 +113,6 @@ export const startMediaWebSocketServer = (server) => {
       console.error('❌ WebSocket error:', err.message);
     });
 });
+
+console.log('🟢 Media WebSocket server ready at /media-stream');
 }
