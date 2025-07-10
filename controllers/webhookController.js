@@ -35,12 +35,16 @@ export const handleTelnyxWebhook = async (req, res) => {
 
         break;
 
+    case 'call.speak.started':
+        console.log(`🗣️ Speak started for call ${payload.call_control_id}`);
+        break;
+
       case 'call.speak.ended':
         console.log(`Speak ended for call ${payload.call_control_id}`);
 
         // Start media streaming
         await axios.post(
-          `https://api.telnyx.com/v2/calls/${payload.call_control_id}/actions/start_stream`,
+          `https://api.telnyx.com/v2/calls/${payload.call_control_id}/actions/streaming_start`,
           {
             stream_url: `${telnyxConfig.publicUrl}/media-stream`, // Will be handled by websocket server
             audio_format: 'audio/opus',
