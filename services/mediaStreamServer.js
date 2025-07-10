@@ -11,7 +11,7 @@ import { transcribeAudio } from './whisperService.js';
 // import axios from 'axios';
 // import { telnyxConfig } from '../config/telnyx.js';
 
-const activeRecordings = new Map();
+// const activeRecordings = new Map();
 
 export const startMediaWebSocketServer = (server) => {
   const wss = new WebSocketServer({ noServer: true });
@@ -41,7 +41,7 @@ export const startMediaWebSocketServer = (server) => {
   });
 
   wavWriter.pipe(fileStream);
-  activeRecordings.set(ws, { wavWriter, filePath, callControlId: null });
+//   activeRecordings.set(ws, { wavWriter, filePath, callControlId: null });
 
   // 🔄 New buffer and timer setup for pause-based chunking
   let audioBuffer = [];
@@ -88,22 +88,23 @@ export const startMediaWebSocketServer = (server) => {
       const data = JSON.parse(message);
 
       if (data.event === 'start') {
-        const clientState = Buffer.from(data.start.client_state, 'base64').toString();
-        const session = callSessionMap.get(clientState);
-        if (session?.callControlId) {
-          const recording = activeRecordings.get(ws);
-          if (recording) recording.callControlId = session.callControlId;
-          console.log(`🔗 Linked callControlId ${session.callControlId} to stream`);
-        }
+        // const clientState = Buffer.from(data.start.client_state, 'base64').toString();
+        // const session = callSessionMap.get(clientState);
+        // if (session?.callControlId) {
+        //   const recording = activeRecordings.get(ws);
+        //   if (recording) recording.callControlId = session.callControlId;
+        //   console.log(`🔗 Linked callControlId ${session.callControlId} to stream`);
+        // }
         console.log('🎙️ Telnyx started streaming audio.');
       } else if (data.event === 'media') {
-        const audio = Buffer.from(data.media.payload, 'base64');
+        const audio = data.media.payload;
+       // const audio = Buffer.from(data.media.payload, 'base64');
 
         // Append to .wav writer (permanent full stream)
-        const recording = activeRecordings.get(ws);
-        if (recording) {
-          recording.wavWriter.write(audio);
-        }
+        // const recording = activeRecordings.get(ws);
+        // if (recording) {
+        //   recording.wavWriter.write(audio);
+        // }
 
         // Add to temporary buffer for live transcription
         audioBuffer.push(audio);
@@ -120,13 +121,13 @@ export const startMediaWebSocketServer = (server) => {
   });
 
   ws.on('close', async () => {
-    const recording = activeRecordings.get(ws);
-    if (recording) {
-      recording.wavWriter.end();
-      activeRecordings.delete(ws);
+    // const recording = activeRecordings.get(ws);
+    // if (recording) {
+    //   recording.wavWriter.end();
+    //   activeRecordings.delete(ws);
 
-      console.log(`✅ Full stream saved: ${recording.filePath}`);
-    }
+    //   console.log(`✅ Full stream saved: ${recording.filePath}`);
+    // }
 
     // Final transcription flush
     await handleSilence();

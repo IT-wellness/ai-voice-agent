@@ -2,29 +2,29 @@ import axios from 'axios';
 import { telnyxConfig } from '../config/telnyx.js';
 import fs from 'fs-extra';
 import path from 'path';
-import { callSessionMap } from '../utils/sessionMap.js';
+// import { callSessionMap } from '../utils/sessionMap.js';
 
-import { transcribeAudio } from '../services/whisperService.js';
+// import { transcribeAudio } from '../services/whisperService.js';
 
 export const handleTelnyxWebhook = async (req, res) => {
   try {
+    console.log("Request Body: ", req.body);
     const event = req.body?.data?.event_type;
     const payload = req.body?.data?.payload;
-    let callId;
+    const callId = payload.call_control_id;
 
     console.log(`➡️ Webhook Received: ${event}`);
 
-    const processedRecordings = new Set();
+    // const processedRecordings = new Set();
 
     switch (event) {
       case 'call.initiated':
-        console.log(`📞 Call initiated: ${payload.call_control_id}`);
+        console.log(`📞 Call initiated: ${callId}`);
         break;
 
       case 'call.answered':
-        callId = payload.call_control_id;
         console.log(`✅ Call answered: ${callId}`);
-        callSessionMap.set(callId, { callControlId: callId });
+        // callSessionMap.set(callId, { callControlId: callId });
         await axios.post(
             `https://api.telnyx.com/v2/calls/${callId}/actions/speak`,
             {
@@ -47,22 +47,22 @@ export const handleTelnyxWebhook = async (req, res) => {
         break;
 
       case 'call.speak.ended':
-        callId = payload.call_control_id;
+        // callId = payload.call_control_id;
         console.log(`🔇 Speak ended for call ${callId}`);
-         await axios.post(
-    `https://api.telnyx.com/v2/calls/${payload.call_control_id}/actions/record_start`,
-    {
-      channels: 'single', // or 'dual' if you want both parties separately
-      format: 'wav',
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${telnyxConfig.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-    }
-  );
-  console.log('🎙️ Recording started');
+//          await axios.post(
+//     `https://api.telnyx.com/v2/calls/${payload.call_control_id}/actions/record_start`,
+//     {
+//       channels: 'single', // or 'dual' if you want both parties separately
+//       format: 'wav',
+//     },
+//     {
+//       headers: {
+//         Authorization: `Bearer ${telnyxConfig.apiKey}`,
+//         'Content-Type': 'application/json',
+//       },
+//     }
+//   );
+//   console.log('🎙️ Recording started');
 const clientState = Buffer.from(callId).toString('base64');
    await axios.post(
     `https://api.telnyx.com/v2/calls/${payload.call_control_id}/actions/streaming_start`,
@@ -82,22 +82,22 @@ const clientState = Buffer.from(callId).toString('base64');
         break;
 
      case 'call.recording.saved':
-  const recordingId = payload.recording_id; // <-- Unique ID for recording
-  const recordingUrl = payload.recording_urls?.wav;
-  callId = payload.call_control_id;
+//   const recordingId = payload.recording_id; // <-- Unique ID for recording
+//   const recordingUrl = payload.recording_urls?.wav;
+//   callId = payload.call_control_id;
 
-  if (processedRecordings.has(recordingId)) {
-    console.log(`⏭️ Skipping duplicate recording: ${recordingId}`);
-    break;
-  }
+//   if (processedRecordings.has(recordingId)) {
+//     console.log(`⏭️ Skipping duplicate recording: ${recordingId}`);
+//     break;
+//   }
 
-  processedRecordings.add(recordingId);
+//   processedRecordings.add(recordingId);
 
-  if (recordingUrl) {
-    await downloadRecording(recordingUrl, callId);
-  } else {
-    console.warn('⚠️ No recording URL found in payload.');
-  }
+//   if (recordingUrl) {
+//     await downloadRecording(recordingUrl, callId);
+//   } else {
+//     console.warn('⚠️ No recording URL found in payload.');
+//   }
   break;
       case 'call.hangup':
         console.log(`📴 Call hung up: ${payload.call_control_id}`);
@@ -115,28 +115,28 @@ const clientState = Buffer.from(callId).toString('base64');
   }
 };
 
-const downloadRecording = async (url) => {
-  try {
-    const recordingsDir = path.resolve('recordings');
-    await fs.ensureDir(recordingsDir);
+// const downloadRecording = async (url) => {
+//   try {
+//     const recordingsDir = path.resolve('recordings');
+//     await fs.ensureDir(recordingsDir);
 
-    const filePath = path.join(recordingsDir, `${Date.now()}.wav`);
-    const response = await axios.get(url, { responseType: 'stream' });
+//     const filePath = path.join(recordingsDir, `${Date.now()}.wav`);
+//     const response = await axios.get(url, { responseType: 'stream' });
 
-    const writer = fs.createWriteStream(filePath);
-    response.data.pipe(writer);
+//     const writer = fs.createWriteStream(filePath);
+//     response.data.pipe(writer);
 
-    await new Promise((resolve, reject) => {
-      writer.on('finish', resolve);
-      writer.on('error', reject);
-    });
+//     await new Promise((resolve, reject) => {
+//       writer.on('finish', resolve);
+//       writer.on('error', reject);
+//     });
 
-    console.log(`✅ Saved recording locally: ${filePath}`);
+//     console.log(`✅ Saved recording locally: ${filePath}`);
 
-    const transcript = await transcribeAudio(filePath);
-      console.log(`📝 Transcript: ${transcript}`);
+//     const transcript = await transcribeAudio(filePath);
+//       console.log(`📝 Transcript: ${transcript}`);
 
-  } catch (error) {
-    console.error('❌ Failed to download recording:', error.message);
-  }
-};
+//   } catch (error) {
+//     console.error('❌ Failed to download recording:', error.message);
+//   }
+// };
