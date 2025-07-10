@@ -16,24 +16,41 @@ export const handleTelnyxWebhook = async (req, res) => {
         break;
 
       case 'call.answered':
-        console.log(`✅ Call answered: ${payload.call_control_id}`);
+  console.log(`✅ Call answered: ${payload.call_control_id}`);
 
-        // Send welcome message
-        await axios.post(
-          `https://api.telnyx.com/v2/calls/${payload.call_control_id}/actions/speak`,
-          {
-            payload: 'Hello! Welcome to our voice assistant. Please say something after the beep.',
-            voice: 'female',
-            language: 'en-US',
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${telnyxConfig.apiKey}`,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-        break;
+  // Start recording
+  await axios.post(
+    `https://api.telnyx.com/v2/calls/${payload.call_control_id}/actions/record_start`,
+    {
+      channels: 'single', // or 'dual' if you want both parties separately
+      format: 'wav',
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${telnyxConfig.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+    }
+  );
+  console.log('🎙️ Recording started');
+
+  // Send welcome message
+  await axios.post(
+    `https://api.telnyx.com/v2/calls/${payload.call_control_id}/actions/speak`,
+    {
+      payload: 'Hello! Welcome to our voice assistant. Please say something after the beep.',
+      voice: 'female',
+      language: 'en-US',
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${telnyxConfig.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+    }
+  );
+
+  break;
 
       case 'call.speak.started':
         console.log(`🗣️ Speak started for call ${payload.call_control_id}`);
@@ -42,35 +59,17 @@ export const handleTelnyxWebhook = async (req, res) => {
       case 'call.speak.ended':
         console.log(`🔇 Speak ended for call ${payload.call_control_id}`);
 
-        // Start Telnyx call recording
-        await axios.post(
-          `https://api.telnyx.com/v2/calls/${payload.call_control_id}/actions/record_start`,
-          {
-            format: 'wav',
-            channels: 'single',
-            client_state: Buffer.from('recording').toString('base64'),
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${telnyxConfig.apiKey}`,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-        console.log('🎙️ Recording started');
+        
         break;
 
       case 'call.recording.saved':
-        const recordingUrl = payload.recording_urls?.[0];
-        const callId = payload.call_control_id;
-
-        if (recordingUrl) {
-          console.log(`📥 Recording ready: ${recordingUrl}`);
-          await downloadRecording(recordingUrl, callId);
-        } else {
-          console.warn('⚠️ No recording URL found in payload.');
-        }
-        break;
+  const urls = payload.recording_urls;
+  if (urls && urls.length > 0) {
+    console.log(`✅ Recording available: ${urls[0]}`);
+  } else {
+    console.warn('⚠️ No recording URL found in payload.');
+  }
+  break;
 
       case 'call.hangup':
         console.log(`📴 Call hung up: ${payload.call_control_id}`);
