@@ -33,6 +33,8 @@ export const startMediaWebSocketServer = (server) => {
     const handleSilence = async () => {
       if (audioBuffer.length === 0) return;
 
+      console.log('🕳️ handleSilence() triggered - chunking & transcribing...');
+
       const rawChunkPath = path.join(recordingsDir, `chunk-${Date.now()}.raw`);
       fs.writeFileSync(rawChunkPath, Buffer.concat(audioBuffer));
 
@@ -60,12 +62,13 @@ export const startMediaWebSocketServer = (server) => {
       audioBuffer = []; // Reset
     };
 
-    const isSilent = (buf, threshold = 5) => {
+    const isSilent = (buf, threshold = 2) => {
       let total = 0;
       for (let i = 0; i < buf.length; i++) {
         total += Math.abs(buf[i] - 128); // µ-law silence centers at 128
       }
       const avg = total / buf.length;
+      console.log(`🔊 Avg Amplitude: ${avg.toFixed(2)}`);
       return avg < threshold;
     };
 
