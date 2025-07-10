@@ -27,20 +27,20 @@ export const startMediaWebSocketServer = (server) => {
   wss.on('connection', (ws) => {
   console.log('🔌 WebSocket connected for media stream');
 
-  const callId = uuidv4();
-  const recordingsDir = path.resolve('recordings');
-  if (!fs.existsSync(recordingsDir)) fs.mkdirSync(recordingsDir);
+//   const callId = uuidv4();
+//   const recordingsDir = path.resolve('recordings');
+//   if (!fs.existsSync(recordingsDir)) fs.mkdirSync(recordingsDir);
 
-  const filePath = path.join(recordingsDir, `${callId}.wav`);
-  const fileStream = fs.createWriteStream(filePath);
+//   const filePath = path.join(recordingsDir, `${callId}.wav`);
+//   const fileStream = fs.createWriteStream(filePath);
 
-  const wavWriter = new wav.Writer({
-    sampleRate: 8000,
-    channels: 1,
-    bitDepth: 16,
-  });
+//   const wavWriter = new wav.Writer({
+//     sampleRate: 8000,
+//     channels: 1,
+//     bitDepth: 16,
+//   });
 
-  wavWriter.pipe(fileStream);
+//   wavWriter.pipe(fileStream);
 //   activeRecordings.set(ws, { wavWriter, filePath, callControlId: null });
 
   // 🔄 New buffer and timer setup for pause-based chunking
@@ -85,6 +85,7 @@ export const startMediaWebSocketServer = (server) => {
 
   ws.on('message', async (message) => {
     try {
+        console.log("MESSAGE: ", message);
       const data = JSON.parse(message);
 
       if (data.event === 'start') {
@@ -98,6 +99,7 @@ export const startMediaWebSocketServer = (server) => {
         console.log('🎙️ Telnyx started streaming audio.');
       } else if (data.event === 'media') {
         const audio = data.media.payload;
+        console.log("AUDIO: ", data);
        // const audio = Buffer.from(data.media.payload, 'base64');
 
         // Append to .wav writer (permanent full stream)
