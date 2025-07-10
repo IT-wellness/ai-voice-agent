@@ -2,8 +2,7 @@ import { WebSocketServer } from 'ws';
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { Writable } from 'stream';
-import { FileWriter } from 'wav';
+import wav from 'wav'; // <== fix: import correctly
 
 const activeRecordings = new Map();
 
@@ -23,16 +22,15 @@ export const startMediaWebSocketServer = (server) => {
 
     const callId = uuidv4();
     const filePath = path.join('recordings', `${callId}.wav`);
-    const fileStream = fs.createWriteStream(filePath);
 
-    // WAV writer config: 16-bit PCM mono at 16000 Hz
-    const wavWriter = new FileWriter(fileStream, {
+    // ✅ Create .wav file stream using wav.FileWriter
+    const fileWriter = new wav.FileWriter(filePath, {
       sampleRate: 16000,
       channels: 1,
       bitDepth: 16,
     });
 
-    activeRecordings.set(ws, { wavWriter, filePath });
+    activeRecordings.set(ws, { fileWriter, filePath });
 
     ws.on('message', (message) => {
       try {
@@ -41,8 +39,8 @@ export const startMediaWebSocketServer = (server) => {
         if (data.event === 'media') {
           const audio = Buffer.from(data.media.payload, 'base64');
           const recording = activeRecordings.get(ws);
-         if (recording) {
-            recording.wavWriter.write(audio);
+          if (recording) {
+            recording.fileWriter.write(audio);
           }
         } else if (data.event === 'start') {
           console.log('🎙️ Telnyx started streaming audio.');
@@ -59,7 +57,7 @@ export const startMediaWebSocketServer = (server) => {
     ws.on('close', () => {
       const recording = activeRecordings.get(ws);
       if (recording) {
-        recording.wavWriter.end();
+        recording.fileWriter.end(); // Finalize WAV
         console.log(`✅ Recording saved as WAV at: ${recording.filePath}`);
         activeRecordings.delete(ws);
       }
