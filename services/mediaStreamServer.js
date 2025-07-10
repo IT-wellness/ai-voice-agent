@@ -85,7 +85,7 @@ export const startMediaWebSocketServer = (server) => {
 
   ws.on('message', async (message) => {
     try {
-        console.log("MESSAGE: ", message);
+        // console.log("MESSAGE: ", message);
       const data = JSON.parse(message);
 
       if (data.event === 'start') {
@@ -98,9 +98,9 @@ export const startMediaWebSocketServer = (server) => {
         // }
         console.log('🎙️ Telnyx started streaming audio.');
       } else if (data.event === 'media') {
-        const audio = data.media.payload;
-        console.log("AUDIO: ", data);
-       // const audio = Buffer.from(data.media.payload, 'base64');
+        // const audio = data.media.payload;
+        // console.log("AUDIO: ", data);
+       const audio = Buffer.from(data.media.payload, 'base64');
 
         // Append to .wav writer (permanent full stream)
         // const recording = activeRecordings.get(ws);
