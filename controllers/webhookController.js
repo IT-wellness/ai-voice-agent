@@ -12,6 +12,7 @@ export const handleTelnyxWebhook = async (req, res) => {
     const event = req.body?.data?.event_type;
     const payload = req.body?.data?.payload;
     const callId = payload.call_control_id;
+    let clientState = null;
 
     console.log(`➡️ Webhook Received: ${event}`);
 
@@ -24,6 +25,7 @@ export const handleTelnyxWebhook = async (req, res) => {
 
       case 'call.answered':
         console.log(`✅ Call answered: ${callId}`);
+        clientState = payload.client_state;
         // callSessionMap.set(callId, { callControlId: callId });
         await axios.post(
             `https://api.telnyx.com/v2/calls/${callId}/actions/speak`,
@@ -46,6 +48,16 @@ export const handleTelnyxWebhook = async (req, res) => {
         console.log(`🗣️ Speak started for call ${payload.call_control_id}`);
         break;
 
+        case 'streaming.started':
+            console.log("Streaming started bhai..");
+            console.log("Data: ", payload.stream_params);
+        break;
+
+        case 'streaming.stopped':
+            console.log("Streaming stopped bhai..");
+            console.log("Data: ", payload.stream_params);
+        break;
+
       case 'call.speak.ended':
         // callId = payload.call_control_id;
         console.log(`🔇 Speak ended for call ${callId}`);
@@ -63,7 +75,7 @@ export const handleTelnyxWebhook = async (req, res) => {
 //     }
 //   );
 //   console.log('🎙️ Recording started');
-const clientState = Buffer.from(callId).toString('base64');
+// const clientState = Buffer.from(callId).toString('base64');
    await axios.post(
     `https://api.telnyx.com/v2/calls/${payload.call_control_id}/actions/streaming_start`,
     {
