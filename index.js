@@ -1,8 +1,12 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
+import fs from 'fs';
+import http from 'http';
+
 import callRoutes from './routes/callRoutes.js';
 import webhookRoutes from './routes/webhookRoutes.js';
+import { startMediaWebSocketServer } from './services/mediaStreamServer.js';
 
 dotenv.config();
 
@@ -23,7 +27,12 @@ app.get('/', (req, res) => {
   res.send('Telnyx Voice Backend is Running');
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server running on https://localhost:${PORT}`);
+const server = http.createServer(app);
+
+// Start WebSocket server on `/media-stream`
+startMediaWebSocketServer(server);
+
+// Start HTTP server
+server.listen(PORT, () => {
+  console.log(`🚀 Backend running on port ${PORT}`);
 });
