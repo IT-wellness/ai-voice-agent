@@ -44,8 +44,8 @@ export const startMediaWebSocketServer = (server) => {
 //   activeRecordings.set(ws, { wavWriter, filePath, callControlId: null });
 
   // 🔄 New buffer and timer setup for pause-based chunking
-//   let textFilePath = null;
-// let textFileStream = null;
+  let textFilePath = null;
+let textFileStream = null;
   let audioBuffer = [];
   let silenceTimer = null;
   const silenceTimeout = 1500; // 1.5s pause triggers transcription
@@ -99,19 +99,19 @@ export const startMediaWebSocketServer = (server) => {
         //   console.log(`🔗 Linked callControlId ${session.callControlId} to stream`);
         // }
         console.log('🎙️ Telnyx started streaming audio.');
-        console.log("DATA: ", data);
-//         const filename = `${Date.now()}.txt`;
-//   textFilePath = path.join(recordingsDir, filename);
-//   textFileStream = fs.createWriteStream(textFilePath, { flags: 'a' });
+        // console.log("DATA: ", data);
+        const filename = `${Date.now()}.txt`;
+  textFilePath = path.join(recordingsDir, filename);
+  textFileStream = fs.createWriteStream(textFilePath, { flags: 'a' });
 
-//   console.log(`📁 Created base64 log file: ${textFilePath}`);
+  console.log(`📁 Created base64 log file: ${textFilePath}`);
 
       } else if (data.event === 'media') {
         // const audio = data.media.payload;
         // console.log("AUDIO: ", data);
-//           if (textFileStream) {
-//     textFileStream.write(data.media.payload);
-//   }
+          if (textFileStream) {
+    textFileStream.write(data.media.payload);
+  }
        const audio = Buffer.from(data.media.payload, 'base64');
 
         // Append to .wav writer (permanent full stream)
@@ -125,10 +125,10 @@ export const startMediaWebSocketServer = (server) => {
         resetSilenceTimer();
       } else if (data.event === 'stop') {
         console.log('⛔ Telnyx stopped streaming.');
-//         if (textFileStream) {
-//   textFileStream.end();
-//   console.log(`📝 Closed base64 log file: ${textFilePath}`);
-// }
+        if (textFileStream) {
+  textFileStream.end();
+  console.log(`📝 Closed base64 log file: ${textFilePath}`);
+}
         await handleSilence(); // Final chunk
       } else {
         console.log('🔹 Other event:', data.event);
@@ -139,10 +139,10 @@ export const startMediaWebSocketServer = (server) => {
   });
 
   ws.on('close', async () => {
-//     if (textFileStream) {
-//   textFileStream.end();
-//   console.log(`📝 Closed base64 log file: ${textFilePath}`);
-// }
+    if (textFileStream) {
+  textFileStream.end();
+  console.log(`📝 Closed base64 log file: ${textFilePath}`);
+}
     // const recording = activeRecordings.get(ws);
     // if (recording) {
     //   recording.wavWriter.end();
