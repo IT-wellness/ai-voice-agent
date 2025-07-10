@@ -48,7 +48,6 @@ export const handleTelnyxWebhook = async (req, res) => {
           {
             stream_url: `${telnyxConfig.streamUrl}/media-stream`, // Will be handled by websocket server
             stream_track: 'both_tracks',
-            audio_format: 'audio/opus',
             client_state: Buffer.from('start-streaming').toString('base64'),
           },
           {
