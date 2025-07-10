@@ -2,11 +2,13 @@ import axios from 'axios';
 import { telnyxConfig } from '../config/telnyx.js';
 import fs from 'fs-extra';
 import path from 'path';
+import { callSessionMap } from '../utils/sessionMap.js';
 
 export const handleTelnyxWebhook = async (req, res) => {
   try {
     const event = req.body?.data?.event_type;
     const payload = req.body?.data?.payload;
+    let callId;
 
     console.log(`➡️ Webhook Received: ${event}`);
 
@@ -16,35 +18,33 @@ export const handleTelnyxWebhook = async (req, res) => {
         break;
 
       case 'call.answered':
-  console.log(`✅ Call answered: ${payload.call_control_id}`);
+        callId = payload.call_control_id;
+        console.log(`✅ Call answered: ${callId}`);
+        callSessionMap.set(callId, { callControlId: callId });
+        await axios.post(
+            `https://api.telnyx.com/v2/calls/${callId}/actions/speak`,
+            {
+            payload: 'Hello! Welcome to our voice assistant. Please say something after the beep.',
+            voice: 'female',
+            language: 'en-US',
+            },
+            {
+            headers: {
+            Authorization: `Bearer ${telnyxConfig.apiKey}`,
+            'Content-Type': 'application/json',
+        },
+        }
+        );
 
-  // Start recording
- 
-
-  // Send welcome message
-  await axios.post(
-    `https://api.telnyx.com/v2/calls/${payload.call_control_id}/actions/speak`,
-    {
-      payload: 'Hello! Welcome to our voice assistant. Please say something after the beep.',
-      voice: 'female',
-      language: 'en-US',
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${telnyxConfig.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-    }
-  );
-
-  break;
+        break;
 
       case 'call.speak.started':
         console.log(`🗣️ Speak started for call ${payload.call_control_id}`);
         break;
 
       case 'call.speak.ended':
-        console.log(`🔇 Speak ended for call ${payload.call_control_id}`);
+        callId = payload.call_control_id;
+        console.log(`🔇 Speak ended for call ${callId}`);
          await axios.post(
     `https://api.telnyx.com/v2/calls/${payload.call_control_id}/actions/record_start`,
     {
@@ -59,13 +59,13 @@ export const handleTelnyxWebhook = async (req, res) => {
     }
   );
   console.log('🎙️ Recording started');
-
+const clientState = Buffer.from(callId).toString('base64');
    await axios.post(
     `https://api.telnyx.com/v2/calls/${payload.call_control_id}/actions/streaming_start`,
     {
       stream_url: `${telnyxConfig.streamUrl}/media-stream`,
       stream_track: 'inbound_track', // caller audio only
-      client_state: Buffer.from('start-streaming').toString('base64'),
+      client_state: clientState
     },
     {
       headers: {
@@ -79,7 +79,7 @@ export const handleTelnyxWebhook = async (req, res) => {
 
       case 'call.recording.saved':
         const recordingUrl = payload.recording_urls?.wav;
-        const callId = payload.call_control_id;
+        callId = payload.call_control_id;
 
         if (recordingUrl) {
           console.log(`📥 Recording ready: ${recordingUrl}`);
@@ -110,7 +110,7 @@ const downloadRecording = async (url, callId) => {
     const recordingsDir = path.resolve('recordings');
     await fs.ensureDir(recordingsDir);
 
-    const filePath = path.join(recordingsDir, `fdsfsdffsadf.wav`);
+    const filePath = path.join(recordingsDir, `${Date.now()}.wav`);
     const response = await axios.get(url, { responseType: 'stream' });
 
     const writer = fs.createWriteStream(filePath);
