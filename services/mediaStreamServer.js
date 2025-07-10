@@ -21,9 +21,13 @@ export const startMediaWebSocketServer = (server) => {
     console.log('🔌 WebSocket connected for media stream');
 
     const callId = uuidv4();
-    const filePath = path.join('recordings', `${callId}.wav`);
+    const recordingsDir = path.resolve('recordings');
+    if (!fs.existsSync(recordingsDir)) fs.mkdirSync(recordingsDir);
+
+    const filePath = path.join(recordingsDir, `${callId}.wav`);
     const fileStream = fs.createWriteStream(filePath);
 
+    // WAV Writer config for Telnyx PCM: 8kHz, mono, 16-bit
     const wavWriter = new wav.Writer({
       sampleRate: 8000,
       channels: 1,
@@ -40,7 +44,9 @@ export const startMediaWebSocketServer = (server) => {
         if (data.event === 'media') {
           const audio = Buffer.from(data.media.payload, 'base64');
           const recording = activeRecordings.get(ws);
-          if (recording) recording.wavWriter.write(audio);
+          if (recording) {
+            recording.wavWriter.write(audio);
+          }
         } else if (data.event === 'start') {
           console.log('🎙️ Telnyx started streaming audio.');
         } else if (data.event === 'stop') {
@@ -57,15 +63,15 @@ export const startMediaWebSocketServer = (server) => {
       const recording = activeRecordings.get(ws);
       if (recording) {
         recording.wavWriter.end();
-        console.log(`✅ Recording saved at: ${recording.filePath}`);
+        console.log(`✅ Saved stream recording at: ${recording.filePath}`);
         activeRecordings.delete(ws);
       }
     });
 
     ws.on('error', (err) => {
-      console.error('WebSocket error:', err.message);
+      console.error('❌ WebSocket error:', err.message);
     });
   });
 
-  console.log('🟢 WebSocket Media Server ready at /media-stream');
+  console.log('🟢 Media WebSocket server ready at /media-stream');
 };

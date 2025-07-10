@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { telnyxConfig } from '../config/telnyx.js';
 import fs from 'fs-extra';
+import path from 'path';
 
 export const handleTelnyxWebhook = async (req, res) => {
   try {
@@ -11,11 +12,11 @@ export const handleTelnyxWebhook = async (req, res) => {
 
     switch (event) {
       case 'call.initiated':
-        console.log(`Call initiated: Call Control ID ${payload.call_control_id}`);
+        console.log(`📞 Call initiated: ${payload.call_control_id}`);
         break;
 
       case 'call.answered':
-        console.log(`Call answered: ${payload.call_control_id}`);
+        console.log(`✅ Call answered: ${payload.call_control_id}`);
 
         // Send welcome message
         await axios.post(
@@ -32,23 +33,22 @@ export const handleTelnyxWebhook = async (req, res) => {
             },
           }
         );
-
         break;
 
-    case 'call.speak.started':
+      case 'call.speak.started':
         console.log(`🗣️ Speak started for call ${payload.call_control_id}`);
         break;
 
       case 'call.speak.ended':
-        console.log(`Speak ended for call ${payload.call_control_id}`);
+        console.log(`🔇 Speak ended for call ${payload.call_control_id}`);
 
-        // Start media streaming
+        // Start Telnyx call recording
         await axios.post(
-          `https://api.telnyx.com/v2/calls/${payload.call_control_id}/actions/streaming_start`,
+          `https://api.telnyx.com/v2/calls/${payload.call_control_id}/actions/record_start`,
           {
-            stream_url: `${telnyxConfig.streamUrl}/media-stream`, // Will be handled by websocket server
-            stream_track: 'both_tracks',
-            client_state: Buffer.from('start-streaming').toString('base64'),
+            format: 'wav',
+            channels: 'single',
+            client_state: Buffer.from('recording').toString('base64'),
           },
           {
             headers: {
@@ -57,26 +57,55 @@ export const handleTelnyxWebhook = async (req, res) => {
             },
           }
         );
-
+        console.log('🎙️ Recording started');
         break;
 
-      case 'call.stream.started':
-        console.log(`Media stream started for ${payload.call_control_id}`);
+      case 'call.recording.saved':
+        const recordingUrl = payload.recording_urls?.[0];
+        const callId = payload.call_control_id;
+
+        if (recordingUrl) {
+          console.log(`📥 Recording ready: ${recordingUrl}`);
+          await downloadRecording(recordingUrl, callId);
+        } else {
+          console.warn('⚠️ No recording URL found in payload.');
+        }
         break;
 
       case 'call.hangup':
-        console.log(`Call hung up: ${payload.call_control_id}`);
+        console.log(`📴 Call hung up: ${payload.call_control_id}`);
         break;
 
       default:
-        console.log(`Unhandled event type: ${event}`);
+        console.log(`ℹ️ Unhandled event: ${event}`);
         break;
     }
 
-    // Respond with 200 to acknowledge webhook
     res.status(200).json({ received: true });
   } catch (err) {
-    console.error('Webhook handler error:', err.message);
+    console.error('❌ Webhook handler error:', err.message);
     res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+const downloadRecording = async (url, callId) => {
+  try {
+    const recordingsDir = path.resolve('recordings');
+    await fs.ensureDir(recordingsDir);
+
+    const filePath = path.join(recordingsDir, `${callId}.wav`);
+    const response = await axios.get(url, { responseType: 'stream' });
+
+    const writer = fs.createWriteStream(filePath);
+    response.data.pipe(writer);
+
+    await new Promise((resolve, reject) => {
+      writer.on('finish', resolve);
+      writer.on('error', reject);
+    });
+
+    console.log(`✅ Saved recording locally: ${filePath}`);
+  } catch (error) {
+    console.error('❌ Failed to download recording:', error.message);
   }
 };
