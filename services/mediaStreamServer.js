@@ -2,7 +2,7 @@ import { WebSocketServer } from 'ws';
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import wav from 'wav'; // <== fix: import correctly
+import wav from 'wav';
 
 const activeRecordings = new Map();
 
@@ -25,7 +25,7 @@ export const startMediaWebSocketServer = (server) => {
 
     // ✅ Create .wav file stream using wav.FileWriter
     const fileWriter = new wav.FileWriter(filePath, {
-      sampleRate: 16000,
+      sampleRate: 8000,
       channels: 1,
       bitDepth: 16,
     });
