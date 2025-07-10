@@ -25,7 +25,7 @@ export const startMediaWebSocketServer = (server) => {
 
     // ✅ Create .wav file stream using wav.FileWriter
     const fileWriter = new wav.FileWriter(filePath, {
-      sampleRate: 8000,
+      sampleRate: 16000,
       channels: 1,
       bitDepth: 16,
     });
