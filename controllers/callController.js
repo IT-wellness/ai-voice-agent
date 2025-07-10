@@ -12,7 +12,7 @@ export const initiateOutboundCall = async (req, res) => {
         to: to,
         from: telnyxConfig.callerId,
         webhook_url: `${telnyxConfig.publicUrl}/api/telnyx/webhook`,
-        client_state: 'ai-call-session',
+        client_state: Buffer.from('ai-call-session').toString('base64')
       },
       {
         headers: {
