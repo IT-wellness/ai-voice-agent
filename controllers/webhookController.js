@@ -4,6 +4,8 @@ import fs from 'fs-extra';
 import path from 'path';
 import { callSessionMap } from '../utils/sessionMap.js';
 
+import { transcribeAudio } from '../services/whisperService.js';
+
 export const handleTelnyxWebhook = async (req, res) => {
   try {
     const event = req.body?.data?.event_type;
@@ -82,7 +84,7 @@ const clientState = Buffer.from(callId).toString('base64');
         callId = payload.call_control_id;
 
         if (recordingUrl) {
-          console.log(`📥 Recording ready: ${recordingUrl}`);
+        //   console.log(`📥 Recording ready: ${recordingUrl}`);
           await downloadRecording(recordingUrl, callId);
         } else {
           console.warn('⚠️ No recording URL found in payload.');
@@ -105,7 +107,7 @@ const clientState = Buffer.from(callId).toString('base64');
   }
 };
 
-const downloadRecording = async (url, callId) => {
+const downloadRecording = async (url) => {
   try {
     const recordingsDir = path.resolve('recordings');
     await fs.ensureDir(recordingsDir);
@@ -122,6 +124,10 @@ const downloadRecording = async (url, callId) => {
     });
 
     console.log(`✅ Saved recording locally: ${filePath}`);
+
+    const transcript = await transcribeAudio(filePath);
+      console.log(`📝 Transcript: ${transcript}`);
+
   } catch (error) {
     console.error('❌ Failed to download recording:', error.message);
   }

@@ -6,7 +6,7 @@ import http from 'http';
 
 import callRoutes from './routes/callRoutes.js';
 import webhookRoutes from './routes/webhookRoutes.js';
-import { startMediaWebSocketServer } from './services/mediaStreamServer.js';
+// import { startMediaWebSocketServer } from './services/mediaStreamServer.js';
 
 dotenv.config();
 
@@ -30,7 +30,7 @@ app.get('/', (req, res) => {
 const server = http.createServer(app);
 
 // Start WebSocket server on `/media-stream`
-startMediaWebSocketServer(server);
+// startMediaWebSocketServer(server);
 
 // Start HTTP server
 server.listen(PORT, () => {

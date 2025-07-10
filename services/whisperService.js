@@ -54,7 +54,7 @@ export const transcribeAudio = async (inputPath) => {
 
     // 🧠 Transcribe using Whisper
     const transcript = await runWhisper(fs.createReadStream(inputPath));
-    console.log('📝 Transcription successful:', transcript);
+    // console.log('📝 Transcription successful:', transcript);
 
     return transcript;
   } catch (err) {
