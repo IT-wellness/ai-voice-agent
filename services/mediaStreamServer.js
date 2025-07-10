@@ -6,10 +6,10 @@ import wav from 'wav';
 
 import { callSessionMap } from '../utils/sessionMap.js';
 import { whisperService } from './whisperService.js';
-import { assistantService } from './assistantService.js';
-import { ttsService } from './ttsService.js';
-import axios from 'axios';
-import { telnyxConfig } from '../config/telnyx.js';
+// import { assistantService } from './assistantService.js';
+// import { ttsService } from './ttsService.js';
+// import axios from 'axios';
+// import { telnyxConfig } from '../config/telnyx.js';
 
 const activeRecordings = new Map();
 
