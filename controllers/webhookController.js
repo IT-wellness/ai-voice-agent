@@ -63,14 +63,16 @@ export const handleTelnyxWebhook = async (req, res) => {
         break;
 
       case 'call.recording.saved':
-  console.log('🧾 call.recording.saved payload:', JSON.stringify(payload, null, 2));
-  const urls = payload.recording_urls;
-  if (urls && urls.length > 0) {
-    console.log(`✅ Recording available: ${urls[0]}`);
-  } else {
-    console.warn('⚠️ No recording URL found in payload.');
-  }
-  break;
+        const recordingUrl = payload.recording_urls?.wav;
+        const callId = payload.call_control_id;
+
+        if (recordingUrl) {
+          console.log(`📥 Recording ready: ${recordingUrl}`);
+          await downloadRecording(recordingUrl, callId);
+        } else {
+          console.warn('⚠️ No recording URL found in payload.');
+        }
+        break;
 
       case 'call.hangup':
         console.log(`📴 Call hung up: ${payload.call_control_id}`);
