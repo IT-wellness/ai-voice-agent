@@ -22,13 +22,14 @@ export const startMediaWebSocketServer = (server) => {
     if (!fs.existsSync(recordingsDir)) fs.mkdirSync(recordingsDir);
 
     let audioBuffer = [];
-    let silenceTimer = null;
-    const silenceTimeout = 1500; // 1.5s pause triggers transcription
+    let silentFrameCount = 0;
+    const SILENCE_THRESHOLD = 25; // amplitude threshold
+    const MAX_SILENT_FRAMES = 10; 
 
-    const resetSilenceTimer = () => {
-      if (silenceTimer) clearTimeout(silenceTimer);
-      silenceTimer = setTimeout(handleSilence, silenceTimeout);
-    };
+    // const resetSilenceTimer = () => {
+    //   if (silenceTimer) clearTimeout(silenceTimer);
+    //   silenceTimer = setTimeout(handleSilence, silenceTimeout);
+    // };
 
     const handleSilence = async () => {
       if (audioBuffer.length === 0) return;
@@ -58,6 +59,15 @@ export const startMediaWebSocketServer = (server) => {
       });
 
       audioBuffer = []; // Reset
+      silentFrameCount = 0;
+    };
+
+    const avgAmplitude = (buf) => {
+      let sum = 0;
+      for (let i = 0; i < buf.length; i++) {
+        sum += Math.abs(buf[i] - 128);
+      }
+      return sum / buf.length;
     };
 
   ws.on('message', async (message) => {
@@ -70,9 +80,17 @@ export const startMediaWebSocketServer = (server) => {
             console.log("MEDIA EVENT: ", data);
           const base64Payload = data.media.payload;
           const audio = Buffer.from(base64Payload, 'base64');
+          const amp = avgAmplitude(audio);
           
           audioBuffer.push(audio);
-          resetSilenceTimer();
+          if (amp < SILENCE_THRESHOLD) {
+            silentFrameCount++;
+            if (silentFrameCount >= MAX_SILENT_FRAMES) {
+              await handleSilence();
+            }
+          } else {
+            silentFrameCount = 0; // reset on voice
+          }
         } else if (data.event === 'stop') {
           console.log('⛔ Telnyx stopped streaming.');
           await handleSilence();
