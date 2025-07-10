@@ -34,5 +34,5 @@ startMediaWebSocketServer(server);
 
 // Start HTTP server
 server.listen(PORT, () => {
-  console.log(`🚀 Backend running on port ${PORT}`);
+  console.log(`🚀 Backend running on port ${PORT}.`);
 });
