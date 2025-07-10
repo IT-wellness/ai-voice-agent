@@ -79,12 +79,12 @@ export const startMediaWebSocketServer = (server) => {
           recentAmplitudes.push(amp);
           if (recentAmplitudes.length > 20) recentAmplitudes.shift();
 
-          const maxAmp = Math.max(...recentAmplitudes);
-          console.log(`🔊 Avg: ${amp.toFixed(2)}, RecentMax: ${maxAmp.toFixed(2)}`);
+          const lowCount = recentAmplitudes.filter(a => a < 40).length;
+          console.log(`🔊 Avg: ${amp.toFixed(2)}, LowFrames: ${lowCount}/20`);
 
           audioBuffer.push(audio);
 
-          if (recentAmplitudes.every((a) => a < 35)) {
+          if (lowCount >= 16) { // 80% below silence threshold
             if (!silenceTimer) {
               silenceTimer = setTimeout(handleSilence, 1000);
             }
