@@ -60,6 +60,15 @@ export const startMediaWebSocketServer = (server) => {
       audioBuffer = []; // Reset
     };
 
+    const isSilent = (buf, threshold = 5) => {
+      let total = 0;
+      for (let i = 0; i < buf.length; i++) {
+        total += Math.abs(buf[i] - 128); // µ-law silence centers at 128
+      }
+      const avg = total / buf.length;
+      return avg < threshold;
+    };
+
   ws.on('message', async (message) => {
       try {
         const data = JSON.parse(message);
@@ -70,7 +79,7 @@ export const startMediaWebSocketServer = (server) => {
           const base64Payload = data.media.payload;
           const audio = Buffer.from(base64Payload, 'base64');
 
-          if (audio.length > 10) {
+          if (!isSilent(audio)) {
             audioBuffer.push(audio);
             resetSilenceTimer();
           }
