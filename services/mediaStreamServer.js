@@ -77,7 +77,7 @@ export const startMediaWebSocketServer = (server) => {
         if (data.event === 'start') {
           console.log('🎙️ Telnyx started streaming audio.');
         } else if (data.event === 'media') {
-            console.log("MEDIA EVENT: ", data);
+            // console.log("MEDIA EVENT: ", data);
           const base64Payload = data.media.payload;
           const audio = Buffer.from(base64Payload, 'base64');
           const amp = avgAmplitude(audio);
