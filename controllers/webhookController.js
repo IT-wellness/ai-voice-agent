@@ -14,6 +14,8 @@ export const handleTelnyxWebhook = async (req, res) => {
 
     console.log(`➡️ Webhook Received: ${event}`);
 
+    const processedRecordings = new Set();
+
     switch (event) {
       case 'call.initiated':
         console.log(`📞 Call initiated: ${payload.call_control_id}`);
@@ -79,18 +81,24 @@ const clientState = Buffer.from(callId).toString('base64');
         
         break;
 
-      case 'call.recording.saved':
-        const recordingUrl = payload.recording_urls?.wav;
-        callId = payload.call_control_id;
+     case 'call.recording.saved':
+  const recordingId = payload.recording_id; // <-- Unique ID for recording
+  const recordingUrl = payload.recording_urls?.wav;
+  callId = payload.call_control_id;
 
-        if (recordingUrl) {
-        //   console.log(`📥 Recording ready: ${recordingUrl}`);
-          await downloadRecording(recordingUrl, callId);
-        } else {
-          console.warn('⚠️ No recording URL found in payload.');
-        }
-        break;
+  if (processedRecordings.has(recordingId)) {
+    console.log(`⏭️ Skipping duplicate recording: ${recordingId}`);
+    break;
+  }
 
+  processedRecordings.add(recordingId);
+
+  if (recordingUrl) {
+    await downloadRecording(recordingUrl, callId);
+  } else {
+    console.warn('⚠️ No recording URL found in payload.');
+  }
+  break;
       case 'call.hangup':
         console.log(`📴 Call hung up: ${payload.call_control_id}`);
         break;
