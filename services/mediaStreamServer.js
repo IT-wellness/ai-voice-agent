@@ -28,7 +28,7 @@ export const startMediaWebSocketServer = (server) => {
   console.log('🔌 WebSocket connected for media stream');
 
 //   const callId = uuidv4();
-//   const recordingsDir = path.resolve('recordings');
+  const recordingsDir = path.resolve('recordings');
 //   if (!fs.existsSync(recordingsDir)) fs.mkdirSync(recordingsDir);
 
 //   const filePath = path.join(recordingsDir, `${callId}.wav`);
