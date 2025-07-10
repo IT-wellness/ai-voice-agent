@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import wav from 'wav';
 
 import { callSessionMap } from '../utils/sessionMap.js';
-import { whisperService } from './whisperService.js';
+import { transcribeAudio } from './whisperService.js';
 // import { assistantService } from './assistantService.js';
 // import { ttsService } from './ttsService.js';
 // import axios from 'axios';
@@ -84,7 +84,7 @@ export const startMediaWebSocketServer = (server) => {
 
     // try {
       // 1. Transcribe
-      const transcript = await whisperService.transcribeAudio(filePath);
+      const transcript = await transcribeAudio(filePath);
       console.log(`📝 Transcript: ${transcript}`);
 
       // 2. Assistant Response
