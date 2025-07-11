@@ -3,6 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import { exec } from 'child_process';
 import { transcribeAudio } from './whisperService.js';
+import askAssistant from './assistantService.js';
+
 
 export const startMediaWebSocketServer = (server) => {
   const wss = new WebSocketServer({ noServer: true });
@@ -23,6 +25,8 @@ export const startMediaWebSocketServer = (server) => {
 
     let audioBuffer = [];
     let chunkInterval = null;
+    let threadId = null;
+    let callId = null;
 
     const flushAndTranscribe = async () => {
       if (audioBuffer.length === 0) return;
@@ -44,6 +48,10 @@ export const startMediaWebSocketServer = (server) => {
           if (transcript.trim()) {
             console.log(`📝 [Transcript]: ${transcript}`);
           }
+           const { replyText, threadId: newThreadId } = await askAssistant(transcript, threadId);
+            threadId = newThreadId || threadId;
+
+            console.log('🤖 Assistant reply:', replyText);
           
         } catch (err) {
           console.error('❌ Failed to transcribe chunk:', err.message);
@@ -62,7 +70,8 @@ export const startMediaWebSocketServer = (server) => {
         const data = JSON.parse(message);
 
         if (data.event === 'start') {
-          console.log('🎙️ Telnyx started streaming audio.', data);
+            callId = data.call_control_id;
+          console.log('🎙️ Telnyx started streaming audio.');
           chunkInterval = setInterval(flushAndTranscribe, 4000); // Every 4 seconds
         } else if (data.event === 'media') {
             // console.log("MEDIA EVENT: ", data);
