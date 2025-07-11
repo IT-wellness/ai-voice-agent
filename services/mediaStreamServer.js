@@ -109,7 +109,7 @@ export const startMediaWebSocketServer = (server) => {
 
         if (data.event === 'start') {
             callId = data.call_control_id;
-          console.log('🎙️ Telnyx started streaming audio.');
+          console.log('🎙️ Telnyx started streaming audio.', data);
           chunkInterval = setInterval(flushAndTranscribe, 6000); // Every 6 seconds
         } else if (data.event === 'media') {
             // console.log("MEDIA EVENT: ", data);
