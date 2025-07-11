@@ -4,6 +4,7 @@ import path from 'path';
 import { exec } from 'child_process';
 import { transcribeAudio } from './whisperService.js';
 import askAssistant from './assistantService.js';
+import { synthesizeSpeech } from './ttsService.js';
 
 
 export const startMediaWebSocketServer = (server) => {
@@ -27,6 +28,14 @@ export const startMediaWebSocketServer = (server) => {
     let chunkInterval = null;
     let threadId = null;
     let callId = null;
+     let lastTranscript = '';
+
+     const isValidTranscript = (text) => {
+      if (!text || text.trim().length < 3) return false;
+      if (text.trim() === '.' || text.trim() === '..' || text.trim() === '...') return false;
+      if (text.trim() === lastTranscript) return false;
+      return true;
+    };
 
     const flushAndTranscribe = async () => {
       if (audioBuffer.length === 0) return;
@@ -45,14 +54,17 @@ export const startMediaWebSocketServer = (server) => {
 
         try {
           const transcript = await transcribeAudio(wavPath);
-          if (transcript.trim()) {
+          if (isValidTranscript(transcript)) {
             console.log(`📝 [Transcript]: ${transcript}`);
-          }
-           const { replyText, threadId: newThreadId } = await askAssistant(transcript, threadId);
-            threadId = newThreadId || threadId;
+            lastTranscript = transcript;
 
+            const { replyText, threadId: newThreadId } = await askAssistant(transcript, threadId);
+            threadId = newThreadId || threadId;
             console.log('🤖 Assistant reply:', replyText);
-          
+
+            
+
+          }
         } catch (err) {
           console.error('❌ Failed to transcribe chunk:', err.message);
         }
