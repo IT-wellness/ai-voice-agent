@@ -5,6 +5,7 @@ import { exec } from 'child_process';
 import { transcribeAudio } from './whisperService.js';
 import askAssistant from './assistantService.js';
 import { synthesizeSpeech } from './ttsService.js';
+import { telnyxConfig } from '../config/telnyx.js';
 import axios from 'axios';
 
 const AUDIO_DIR = '/var/www/frontend/dist/audio';
@@ -72,6 +73,8 @@ export const startMediaWebSocketServer = (server) => {
 
             const { replyText, threadId: newThreadId } = await askAssistant(transcript, threadId);
             threadId = newThreadId || threadId;
+
+            console.log("Assistant: ", replyText);
 
             const audioBuffer = await synthesizeSpeech(replyText);
             const filename = `speech_${Date.now()}.mp3`;
