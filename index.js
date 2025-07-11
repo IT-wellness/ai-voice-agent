@@ -18,6 +18,14 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+const audioPath = path.join('/var/www/frontend/dist/audio');
+if (fs.existsSync(audioPath)) {
+  // console.log('📁 Serving static audio from:', audioPath);
+  app.use('/audio', express.static(audioPath));
+} else {
+  console.warn('⚠️ Audio path not found:', audioPath);
+}
+
 // Routes
 app.use('/api/call', callRoutes);
 app.use('/api/telnyx', webhookRoutes);

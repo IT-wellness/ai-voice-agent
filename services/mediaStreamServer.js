@@ -6,6 +6,8 @@ import { transcribeAudio } from './whisperService.js';
 import askAssistant from './assistantService.js';
 import { synthesizeSpeech } from './ttsService.js';
 
+const AUDIO_DIR = '/var/www/frontend/dist/audio';
+const AUDIO_BASE_URL = 'https://wellvoice.wellnessextract.com/audio';
 
 export const startMediaWebSocketServer = (server) => {
   const wss = new WebSocketServer({ noServer: true });
@@ -62,17 +64,41 @@ export const startMediaWebSocketServer = (server) => {
             threadId = newThreadId || threadId;
             console.log('🤖 Assistant reply:', replyText);
 
-            
+            const responseBuffer = await synthesizeSpeech(replyText);
+            if (!responseBuffer) throw new Error('TTS failed');
 
-          }
-        } catch (err) {
-          console.error('❌ Failed to transcribe chunk:', err.message);
+            const filename = `speech_${Date.now()}.mp3`;
+            const filepath = path.join(AUDIO_DIR, filename);
+            fs.writeFileSync(filepath, responseBuffer);
+
+            const audioUrl = `${AUDIO_BASE_URL}/${filename}`;
+            // console.log('📁 Audio file saved:', filepath);
+            // console.log('📡 Public URL:', audioUrl);
+
+            if (callId) {
+                console.log('📤 Sending audio to Telnyx for call:', callId);
+                await axios.post(
+                    `https://api.telnyx.com/v2/calls/${callId}/actions/playback_start`,
+                    { audio_url: audioUrl },
+                    {
+                        headers: {
+                            Authorization: `Bearer ${process.env.TELNYX_API_KEY}`
+                        }
+                    }
+                );
+                // console.log('✅ TTS audio sent to Telnyx');
+            } else {
+                console.warn('⚠️ Missing callId. Skipping Telnyx send_audio.');
+            }
         }
-
+        } catch (err) {
+            console.error('❌ Voice loop error:', err.response?.data || err.message);
+        }
+    
         // Clean up
         fs.unlinkSync(rawChunkPath);
         fs.unlinkSync(wavPath);
-      });
+    });
 
       audioBuffer = []; // Reset
     };
@@ -84,7 +110,7 @@ export const startMediaWebSocketServer = (server) => {
         if (data.event === 'start') {
             callId = data.call_control_id;
           console.log('🎙️ Telnyx started streaming audio.');
-          chunkInterval = setInterval(flushAndTranscribe, 4000); // Every 4 seconds
+          chunkInterval = setInterval(flushAndTranscribe, 6000); // Every 6 seconds
         } else if (data.event === 'media') {
             // console.log("MEDIA EVENT: ", data);
           const base64Payload = data.media.payload;
