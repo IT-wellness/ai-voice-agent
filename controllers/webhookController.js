@@ -20,21 +20,6 @@ export const handleTelnyxWebhook = async (req, res) => {
         clientState = payload.client_state;
 
         await axios.post(
-            `https://api.telnyx.com/v2/calls/${payload.call_control_id}/actions/streaming_start`,
-            {
-            stream_url: `${telnyxConfig.streamUrl}/media-stream`,
-            stream_track: 'both_tracks',
-            client_state: clientState
-            },
-            {
-            headers: {
-                Authorization: `Bearer ${telnyxConfig.apiKey}`,
-                'Content-Type': 'application/json',
-            },
-            }
-        );
-
-        await axios.post(
             `https://api.telnyx.com/v2/calls/${callId}/actions/speak`,
             {
             payload: 'Hello! Welcome to our voice assistant. Please say something after the beep.',
@@ -65,8 +50,20 @@ export const handleTelnyxWebhook = async (req, res) => {
 
       case 'call.speak.ended':
         console.log(`🔇 Speak ended for call ${callId}`);
-        
-        
+        await axios.post(
+            `https://api.telnyx.com/v2/calls/${payload.call_control_id}/actions/streaming_start`,
+            {
+            stream_url: `${telnyxConfig.streamUrl}/media-stream`,
+            stream_track: 'inbound_track',
+            client_state: clientState
+            },
+            {
+            headers: {
+                Authorization: `Bearer ${telnyxConfig.apiKey}`,
+                'Content-Type': 'application/json',
+            },
+            }
+        );
         break;
 
       case 'call.hangup':
