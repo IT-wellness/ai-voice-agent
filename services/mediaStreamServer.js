@@ -117,7 +117,7 @@ export const startMediaWebSocketServer = (server) => {
         const data = JSON.parse(message);
 
         if (data.event === 'start') {
-          callId = data.call_control_id;
+          callId = data.start.call_control_id;
           console.log('🎙️ Telnyx started streaming for call:', callId);
         } else if (data.event === 'media') {
           const chunk = Buffer.from(data.media.payload, 'base64');
