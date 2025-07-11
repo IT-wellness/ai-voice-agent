@@ -121,7 +121,7 @@ export const startMediaWebSocketServer = (server) => {
           const audio = Buffer.from(data.media.payload, 'base64');
           chunkBuffer.push(audio);
 
-          if (chunkBuffer.length >= 10) {
+          if (chunkBuffer.length >= 100) {
             const combined = Buffer.concat(chunkBuffer);
             chunkBuffer = [];
 
