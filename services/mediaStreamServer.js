@@ -44,13 +44,14 @@ export const startMediaWebSocketServer = (server) => {
           if (transcript.trim()) {
             console.log(`📝 [Transcript]: ${transcript}`);
           }
+          
         } catch (err) {
           console.error('❌ Failed to transcribe chunk:', err.message);
         }
 
         // Clean up
         fs.unlinkSync(rawChunkPath);
-        // fs.unlinkSync(wavPath);
+        fs.unlinkSync(wavPath);
       });
 
       audioBuffer = []; // Reset
@@ -61,7 +62,7 @@ export const startMediaWebSocketServer = (server) => {
         const data = JSON.parse(message);
 
         if (data.event === 'start') {
-          console.log('🎙️ Telnyx started streaming audio.');
+          console.log('🎙️ Telnyx started streaming audio.', data);
           chunkInterval = setInterval(flushAndTranscribe, 4000); // Every 4 seconds
         } else if (data.event === 'media') {
             // console.log("MEDIA EVENT: ", data);
