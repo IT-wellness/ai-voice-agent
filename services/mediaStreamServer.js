@@ -22,24 +22,17 @@ export const startMediaWebSocketServer = (server) => {
     if (!fs.existsSync(recordingsDir)) fs.mkdirSync(recordingsDir);
 
     let audioBuffer = [];
-    let silentFrameCount = 0;
-    const SILENCE_THRESHOLD = 25; // amplitude threshold
-    const MAX_SILENT_FRAMES = 10; 
+    let chunkInterval = null;
 
-    // const resetSilenceTimer = () => {
-    //   if (silenceTimer) clearTimeout(silenceTimer);
-    //   silenceTimer = setTimeout(handleSilence, silenceTimeout);
-    // };
-
-    const handleSilence = async () => {
+    const flushAndTranscribe = async () => {
       if (audioBuffer.length === 0) return;
 
       const rawChunkPath = path.join(recordingsDir, `chunk-${Date.now()}.raw`);
       fs.writeFileSync(rawChunkPath, Buffer.concat(audioBuffer));
 
       const wavPath = rawChunkPath.replace('.raw', '.wav');
-
       const ffmpegCommand = `ffmpeg -f mulaw -ar 8000 -ac 1 -i ${rawChunkPath} ${wavPath}`;
+      
       exec(ffmpegCommand, async (error) => {
         if (error) {
           console.error('❌ FFmpeg conversion error:', error.message);
@@ -48,7 +41,9 @@ export const startMediaWebSocketServer = (server) => {
 
         try {
           const transcript = await transcribeAudio(wavPath);
-          console.log(`📝 [Chunk Transcript]: ${transcript}`);
+          if (transcript.trim()) {
+            console.log(`📝 [Transcript]: ${transcript}`);
+          }
         } catch (err) {
           console.error('❌ Failed to transcribe chunk:', err.message);
         }
@@ -59,15 +54,6 @@ export const startMediaWebSocketServer = (server) => {
       });
 
       audioBuffer = []; // Reset
-      silentFrameCount = 0;
-    };
-
-    const avgAmplitude = (buf) => {
-      let sum = 0;
-      for (let i = 0; i < buf.length; i++) {
-        sum += Math.abs(buf[i] - 128);
-      }
-      return sum / buf.length;
     };
 
   ws.on('message', async (message) => {
@@ -76,24 +62,16 @@ export const startMediaWebSocketServer = (server) => {
 
         if (data.event === 'start') {
           console.log('🎙️ Telnyx started streaming audio.');
+          chunkInterval = setInterval(flushAndTranscribe, 4000); // Every 4 seconds
         } else if (data.event === 'media') {
             // console.log("MEDIA EVENT: ", data);
           const base64Payload = data.media.payload;
           const audio = Buffer.from(base64Payload, 'base64');
-          const amp = avgAmplitude(audio);
-          
           audioBuffer.push(audio);
-          if (amp < SILENCE_THRESHOLD) {
-            silentFrameCount++;
-            if (silentFrameCount >= MAX_SILENT_FRAMES) {
-              await handleSilence();
-            }
-          } else {
-            silentFrameCount = 0; // reset on voice
-          }
         } else if (data.event === 'stop') {
           console.log('⛔ Telnyx stopped streaming.');
-          await handleSilence();
+          clearInterval(chunkInterval);
+          await flushAndTranscribe();
         } else {
           console.log('🔹 Other event:', data.event);
         }
@@ -103,11 +81,13 @@ export const startMediaWebSocketServer = (server) => {
     });
 
  ws.on('close', async () => {
-      await handleSilence();
+      clearInterval(chunkInterval);
+      await flushAndTranscribe();
     });
 
     ws.on('error', (err) => {
       console.error('❌ WebSocket error:', err.message);
     });
 });
+ console.log('🟢 Media WebSocket server ready at /media-stream');
 }
