@@ -5,6 +5,7 @@ import { exec } from 'child_process';
 import { transcribeAudio } from './whisperService.js';
 import askAssistant from './assistantService.js';
 import { synthesizeSpeech } from './ttsService.js';
+import axios from 'axios';
 
 const AUDIO_DIR = '/var/www/frontend/dist/audio';
 const AUDIO_BASE_URL = 'https://wellvoice.wellnessextract.com/audio';
@@ -39,7 +40,7 @@ export const startMediaWebSocketServer = (server) => {
       return true;
     };
 
-    const flushAndTranscribe = async (callId=null) => {
+    const flushAndTranscribe = async () => {
       if (audioBuffer.length === 0) return;
 
       const rawChunkPath = path.join(recordingsDir, `chunk-${Date.now()}.raw`);
@@ -109,8 +110,8 @@ export const startMediaWebSocketServer = (server) => {
 
         if (data.event === 'start') {
             callId = data.call_control_id;
-          console.log('🎙️ Telnyx started streaming audio.', data.call_control_id);
-          chunkInterval = setInterval(flushAndTranscribe(callId), 6000); // Every 6 seconds
+          console.log('🎙️ Telnyx started streaming audio.', data);
+          chunkInterval = setInterval(() => flushAndTranscribe(), 6000); // Every 6 seconds
         } else if (data.event === 'media') {
             // console.log("MEDIA EVENT: ", data);
           const base64Payload = data.media.payload;
