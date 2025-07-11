@@ -9,9 +9,6 @@ import axios from 'axios';
 
 const AUDIO_DIR = '/var/www/frontend/dist/audio';
 const AUDIO_BASE_URL = 'https://wellvoice.wellnessextract.com/audio';
-const RMS_THRESHOLD = 10;
-const MIN_CHUNK_MS = 300;
-const MAX_SILENCE_MS = 1500;
 
 export const startMediaWebSocketServer = (server) => {
   const wss = new WebSocketServer({ noServer: true });
@@ -31,17 +28,16 @@ export const startMediaWebSocketServer = (server) => {
     if (!fs.existsSync(recordingsDir)) fs.mkdirSync(recordingsDir);
 
     let audioBuffer = [];
-    let vadTimer = null;
-    let recordingStart = null;
+    let chunkInterval = null;
     let threadId = null;
     let callId = null;
     let lastTranscript = '';
 
     const isValidTranscript = (text) => {
-      if (!text || text.trim().length < 3) return false;
-      if (/^\.+$/.test(text.trim())) return false;
-      if (text.trim() === lastTranscript) return false;
-      return true;
+        if (!text || text.trim().length < 3) return false;
+        if (text.trim() === '.' || text.trim() === '..' || text.trim() === '...') return false;
+        if (text.trim() === lastTranscript) return false;
+        return true;
     };
 
     const flushAndTranscribe = async () => {
@@ -49,98 +45,96 @@ export const startMediaWebSocketServer = (server) => {
 
       const rawChunkPath = path.join(recordingsDir, `chunk-${Date.now()}.raw`);
       fs.writeFileSync(rawChunkPath, Buffer.concat(audioBuffer));
-      audioBuffer = [];
 
       const wavPath = rawChunkPath.replace('.raw', '.wav');
       const ffmpegCommand = `ffmpeg -f mulaw -ar 8000 -ac 1 -i ${rawChunkPath} ${wavPath}`;
-
+      
       exec(ffmpegCommand, async (error) => {
-        if (error) return console.error('❌ FFmpeg error:', error.message);
+        if (error) {
+          console.error('❌ FFmpeg conversion error:', error.message);
+          return;
+        }
 
         try {
           const transcript = await transcribeAudio(wavPath);
-          if (!isValidTranscript(transcript)) return;
+          if (isValidTranscript(transcript)) {
+            console.log(`📝 [Transcript]: ${transcript}`);
+            lastTranscript = transcript;
 
-          console.log(`📝 Transcript: ${transcript}`);
-          lastTranscript = transcript;
+            const { replyText, threadId: newThreadId } = await askAssistant(transcript, threadId);
+            threadId = newThreadId || threadId;
+            console.log('🤖 Assistant reply:', replyText);
 
-          const { replyText, threadId: newThreadId } = await askAssistant(transcript, threadId);
-          threadId = newThreadId || threadId;
+            const responseBuffer = await synthesizeSpeech(replyText);
+            if (!responseBuffer) throw new Error('TTS failed');
 
-          console.log('🤖 Assistant reply:', replyText);
-          const ttsBuffer = await synthesizeSpeech(replyText);
+            const filename = `speech_${Date.now()}.mp3`;
+            const filepath = path.join(AUDIO_DIR, filename);
+            fs.writeFileSync(filepath, responseBuffer);
 
-          const filename = `speech_${Date.now()}.mp3`;
-          const filepath = path.join(AUDIO_DIR, filename);
-          fs.writeFileSync(filepath, ttsBuffer);
-
-          const audioUrl = `${AUDIO_BASE_URL}/${filename}`;
-
-          if (callId) {
-            await axios.post(
-              `https://api.telnyx.com/v2/calls/${callId}/actions/playback_stop`,
-              {},
-              { headers: { Authorization: `Bearer ${process.env.TELNYX_API_KEY}` } }
-            );
-
-            await axios.post(
-              `https://api.telnyx.com/v2/calls/${callId}/actions/playback_start`,
-              { audio_url: audioUrl },
-              { headers: { Authorization: `Bearer ${process.env.TELNYX_API_KEY}` } }
-            );
-          }
-        } catch (err) {
-          console.error('❌ Voice loop error:', err.response?.data || err.message);
-        } finally {
-          fs.unlinkSync(rawChunkPath);
-          fs.unlinkSync(wavPath);
+            const audioUrl = `${AUDIO_BASE_URL}/${filename}`;
+        
+            if (callId) {
+                console.log('📤 Sending audio to Telnyx for call:', callId);
+                await axios.post(
+                    `https://api.telnyx.com/v2/calls/${callId}/actions/playback_start`,
+                    { audio_url: audioUrl },
+                    {
+                        headers: {
+                            Authorization: `Bearer ${process.env.TELNYX_API_KEY}`
+                        }
+                    }
+                );
+                // console.log('✅ TTS audio sent to Telnyx');
+            } else {
+                console.warn('⚠️ Missing callId. Skipping Telnyx send_audio.');
+            }
         }
-      });
+        } catch (err) {
+            console.error('❌ Voice loop error:', err.response?.data || err.message);
+        }
+    
+        // Clean up
+        fs.unlinkSync(rawChunkPath);
+        fs.unlinkSync(wavPath);
+    });
+
+      audioBuffer = []; // Reset
     };
 
-    const resetVAD = () => {
-      if (vadTimer) clearTimeout(vadTimer);
-      vadTimer = setTimeout(() => {
-        console.log('🕳️ Silence detected, flushing audio...');
-        flushAndTranscribe();
-      }, MAX_SILENCE_MS);
-    };
-
-    const rms = (buffer) => {
-      const view = new Int8Array(buffer);
-      const squareSum = view.reduce((sum, val) => sum + val * val, 0);
-      return Math.sqrt(squareSum / view.length);
-    };
-
-    ws.on('message', (message) => {
+  ws.on('message', async (message) => {
       try {
         const data = JSON.parse(message);
 
         if (data.event === 'start') {
-          callId = data.start.call_control_id;
-          console.log('🎙️ Telnyx started streaming for call:', callId);
+            callId = data.start.call_control_id;
+          console.log('🎙️ Telnyx started streaming audio.');
+          chunkInterval = setInterval(() => flushAndTranscribe(), 6000); // Every 6 seconds
         } else if (data.event === 'media') {
-          const chunk = Buffer.from(data.media.payload, 'base64');
-          audioBuffer.push(chunk);
-          const level = rms(chunk);
-          if (level > RMS_THRESHOLD) {
-            resetVAD();
-          }
+            console.log("MEDIA EVENT: ", data);
+            const base64Payload = data.media.payload;
+            const audio = Buffer.from(base64Payload, 'base64');
+            audioBuffer.push(audio);
         } else if (data.event === 'stop') {
           console.log('⛔ Telnyx stopped streaming.');
-          if (vadTimer) clearTimeout(vadTimer);
-          flushAndTranscribe();
+          clearInterval(chunkInterval);
+          await flushAndTranscribe();
+        } else {
+          console.log('🔹 Other event:', data.event);
         }
       } catch (err) {
-        console.error('⚠️ Message parse error:', err.message);
+        console.error('⚠️ Failed to process WebSocket message:', err.message);
       }
     });
 
-    ws.on('close', () => {
-      if (vadTimer) clearTimeout(vadTimer);
-      flushAndTranscribe();
+ ws.on('close', async () => {
+      clearInterval(chunkInterval);
+      await flushAndTranscribe();
     });
-  });
 
-  console.log('🟢 Media WebSocket server ready at /media-stream');
-};
+    ws.on('error', (err) => {
+      console.error('❌ WebSocket error:', err.message);
+    });
+});
+ console.log('🟢 Media WebSocket server ready at /media-stream');
+}
