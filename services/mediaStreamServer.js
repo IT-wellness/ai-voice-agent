@@ -39,7 +39,7 @@ export const startMediaWebSocketServer = (server) => {
       return true;
     };
 
-    const flushAndTranscribe = async () => {
+    const flushAndTranscribe = async (callId=null) => {
       if (audioBuffer.length === 0) return;
 
       const rawChunkPath = path.join(recordingsDir, `chunk-${Date.now()}.raw`);
@@ -109,8 +109,8 @@ export const startMediaWebSocketServer = (server) => {
 
         if (data.event === 'start') {
             callId = data.call_control_id;
-          console.log('🎙️ Telnyx started streaming audio.', data);
-          chunkInterval = setInterval(flushAndTranscribe, 6000); // Every 6 seconds
+          console.log('🎙️ Telnyx started streaming audio.', data.call_control_id);
+          chunkInterval = setInterval(flushAndTranscribe(callId), 6000); // Every 6 seconds
         } else if (data.event === 'media') {
             // console.log("MEDIA EVENT: ", data);
           const base64Payload = data.media.payload;
